@@ -149,6 +149,15 @@
 #define ROM_MODULES_CJSON
 #endif
 
+
+#if defined(LUA_USE_MODULES_AES)
+#define MODULES_AES "aes"
+#define ROM_MODULES_AES \
+    _ROM(MODULES_AES, luaopen_aes, aes_map)
+#else
+#define ROM_MODULES_AES
+#endif
+
 #define LUA_MODULES_ROM     \
         ROM_MODULES_GPIO    \
         ROM_MODULES_PWM		\
@@ -167,6 +176,7 @@
         ROM_MODULES_OW      \
         ROM_MODULES_BIT     \
         ROM_MODULES_WS2812  \
+        ROM_MODULES_AES 	\
         ROM_MODULES_CJSON
 
 #endif

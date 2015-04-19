@@ -36,6 +36,7 @@ SUBDIRS=    \
 	smart 	\
 	wofs 	\
 	modules	\
+	ssl     \
 	spiffs	\
 	cjson
 
