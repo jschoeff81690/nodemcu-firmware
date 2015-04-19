@@ -49,7 +49,7 @@ static int aes_encrypt( lua_State* L ) {
 	int i;
 	uint8_t *out_data, *in_data;
 	size_t in_len;
-	char result[32];
+	char *result;
 	const char *in_data_tmp = luaL_checklstring(L, 1, &in_len);
 	
 	in_data = (uint8_t *)in_data_tmp;
@@ -63,12 +63,50 @@ static int aes_encrypt( lua_State* L ) {
 	return 1;
 }
 
-
-static int aes_encrypt( lua_State* L ) {
+static int aes_encrypt2( lua_State* L ) {
 	int i;
-	uint8_t *out_data, *in_data;
+	uint8_t *out_data;
+	uint8_t in_data[32]= {0x1, 0x2, 0x3, 0x8, 0x2, 0x1, 0x1, 0x1, 0x3, 0x1, 0x2, 0x3, 0x4, 0x1, 0x2, 0x4, 0x1, 0x2, 0x4, 0x4, 0x4, 0x1, 0x2, 0x4, 0x3, 0x1, 0x2, 0x3, 0x1, 0x3, 0x3, 0x1};
 	size_t in_len;
-	char result[32];
+	char *result;
+	
+
+	//encrypt
+	AES_cbc_encrypt(&aes_ctx, in_data, 
+		out_data, in_len);
+	
+	result = (char *)out_data;
+	lua_pushstring(L, result);
+	return 1;
+}
+
+static int aes_encrypt4( lua_State* L ) {
+	int i;
+	luaL_Buffer b;
+	luaL_buffinit(L, &b);
+	uint8_t *out_data = luaL_prepbuffer(&b);
+	uint8_t in_data[32]={0x1, 0x2, 0x3, 0x8, 0x2, 0x1, 0x1, 0x1, 0x3, 0x1, 0x2, 0x3, 0x4, 0x1, 0x2, 0x4, 0x1, 0x2, 0x4, 0x4, 0x4, 0x1, 0x2, 0x4, 0x3, 0x1, 0x2, 0x3, 0x1, 0x3, 0x3, 0x1};
+	size_t in_len;
+
+	//encrypt
+	AES_cbc_encrypt(&aes_ctx, in_data, 
+		out_data, in_len);
+	
+	/*char *p = luaL_prepbuffer(&b);*/
+	luaL_addsize(&b, 32);
+	luaL_pushresult(&b); 
+
+
+	return 1;
+}
+
+static int aes_encrypt3( lua_State* L ) {
+	int i;
+	luaL_Buffer b;
+	luaL_buffinit(L, &b);
+	uint8_t *out_data = luaL_prepbuffer(&b);
+	uint8_t *in_data;
+	size_t in_len;
 	const char *in_data_tmp = luaL_checklstring(L, 1, &in_len);
 	
 	in_data = (uint8_t *)in_data_tmp;
@@ -77,13 +115,8 @@ static int aes_encrypt( lua_State* L ) {
 	AES_cbc_encrypt(&aes_ctx, in_data, 
 		out_data, in_len);
 	
-	result = (char *)out_data;
-	lua_pushstring(L, result);
-	luaL_Buffer b;
-	luaL_buffinit(L, &b);
 	/*char *p = luaL_prepbuffer(&b);*/
-	uint8_t *list = luaL_prepbuffer(&b);
-	luaL_addsize(&b, i);
+	luaL_addsize(&b, 32);
 	luaL_pushresult(&b); 
 
 
@@ -242,6 +275,9 @@ const LUA_REG_TYPE aes_map[] =
 		  { LSTRKEY( "fopen" ), LFUNCVAL( aes_file_open)},
 		  { LSTRKEY( "fclose" ), LFUNCVAL( aes_file_close)},
 		  { LSTRKEY( "encrypt" ), LFUNCVAL( aes_encrypt)},
+		  { LSTRKEY( "encrypt2" ), LFUNCVAL( aes_encrypt2)},
+		  { LSTRKEY( "encrypt3" ), LFUNCVAL( aes_encrypt3)},
+		  { LSTRKEY( "encrypt4" ), LFUNCVAL( aes_encrypt4)},
 		  { LSTRKEY( "decrypt" ), LFUNCVAL( aes_decrypt)},
   { LNILKEY, LNILVAL}
 };
