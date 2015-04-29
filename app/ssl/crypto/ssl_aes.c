@@ -42,7 +42,7 @@
 #include "ssl/ssl_crypto.h"
 
 /* all commented out in skeleton mode */
-#ifndef CONFIG_SSL_SKELETON_MODE
+//#ifndef CONFIG_SSL_SKELETON_MODE
 
 #define rot1(x) (((x) << 24) | ((x) >> 8))
 #define rot2(x) (((x) << 16) | ((x) >> 16))
@@ -252,6 +252,7 @@ void ICACHE_FLASH_ATTR AES_set_key(AES_CTX *ctx, const uint8_t *key,
         }
 
         W[i]=W[i-words]^tmp;
+		WRITE_PERI_REG(0x60000914, 0x73);	
     }
 
     /* copy the iv across */
@@ -274,7 +275,10 @@ void ICACHE_FLASH_ATTR AES_convert_key(AES_CTX *ctx)
         w= *k;
         w = inv_mix_col(w,t1,t2,t3,t4);
         *k++ =w;
-    }
+    	
+		//clear watchdog
+		WRITE_PERI_REG(0x60000914, 0x73);	
+	}
 }
 
 /**
@@ -309,10 +313,14 @@ void ICACHE_FLASH_ATTR AES_cbc_encrypt(AES_CTX *ctx, const uint8_t *msg, uint8_t
 
         os_memcpy(out, out_32, AES_BLOCKSIZE);
         out += AES_BLOCKSIZE;
-    }
+   		
+		//clear Watchdog 
+		WRITE_PERI_REG(0x60000914, 0x73);
+	}
 
-    for (i = 0; i < 4; i++)
+    for (i = 0; i < 4; i++) {
         iv[i] = htonl(tout[i]);
+	}
     os_memcpy(ctx->iv, iv, AES_IV_SIZE);
 }
 
@@ -352,6 +360,8 @@ void ICACHE_FLASH_ATTR AES_cbc_decrypt(AES_CTX *ctx, const uint8_t *msg, uint8_t
 
         os_memcpy(out, out_32, AES_BLOCKSIZE);
         out += AES_BLOCKSIZE;
+		//clear watchdog
+		WRITE_PERI_REG(0x60000914, 0x73);	
     }
 
     for (i = 0; i < 4; i++)
@@ -405,12 +415,18 @@ static void ICACHE_FLASH_ATTR AES_encrypt(const AES_CTX *ctx, uint32_t *data)
             }
 
             tmp[row] = ((a0 << 24) | (a1 << 16) | (a2 << 8) | a3);
+		
+			//clear watchdog
+			WRITE_PERI_REG(0x60000914, 0x73);	
         }
 
         /* KeyAddition - note that it is vital that this loop is separate from
            the MixColumn operation, which must be atomic...*/ 
         for (row = 0; row < 4; row++)
             data[row] = tmp[row] ^ *(k++);
+		
+		//clear watchdog
+		WRITE_PERI_REG(0x60000914, 0x73);	
     }
 }
 
@@ -468,11 +484,17 @@ static void ICACHE_FLASH_ATTR AES_decrypt(const AES_CTX *ctx, uint32_t *data)
             }
             else
                 tmp[row-1] = ((a0<<24)|(a1<<16)|(a2<<8)|a3);
+			
+			//clear watchdog
+			WRITE_PERI_REG(0x60000914, 0x73);	
         }
 
         for (row = 4; row > 0; row--)
             data[row-1] = tmp[row-1] ^ *(--k);
+		
+		//clear watchdog
+		WRITE_PERI_REG(0x60000914, 0x73);	
     }
 }
 
-#endif
+//#endif

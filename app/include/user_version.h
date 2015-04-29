@@ -6,7 +6,7 @@
 #define NODE_VERSION_REVISION	5U
 #define NODE_VERSION_INTERNAL   0U
 
-#define NODE_VERSION	"NodeMCU 0.9.5v AES"
-#define BUILD_DATE	    "build 20150418"
+#define NODE_VERSION	"NodeMCU 0.9.5.33 AES"
+#define BUILD_DATE	    "build 20150428"
 
 #endif	/* __USER_VERSION_H__ */
