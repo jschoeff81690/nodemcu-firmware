@@ -11,10 +11,13 @@
 #include "ssl/ssl_crypto.h"
 
 static volatile int input_fd = FS_OPEN_OK - 1;
-static volatile int output_fd = FS_OPEN_OK - 1;
 static AES_CTX aes_ctx;
 
-
+/**
+ *  Takes Ascii input(char array) as Hex and returns array with corresponding value
+ * Does not check if data is correct, will fail if not
+ * e.g. "03F2" -> 00000011 11110010
+ */
 static int ICACHE_FLASH_ATTR 
 aes_read_hex(const unsigned char *in, size_t in_len, uint8_t *out, size_t *out_len) {
 	int i=0, out_count=0;
@@ -82,6 +85,7 @@ aes_fread_hex( uint8_t *out, size_t *len) {
 		}
 		s = (unsigned char)(0xFF & c);
 		//convert the ascii char to int
+		
 		//if char is in range A-F
 		if( s > 64 && s < 71 ) {
 				hi = s-55; 
@@ -101,6 +105,7 @@ aes_fread_hex( uint8_t *out, size_t *len) {
 		}
 		s = (unsigned char)(0xFF & c);
 		//convert the ascii char to int
+		
 		//if char is in range A-F
 		if( s > 64 && s < 71 ) {
 				lo = s-55; 
@@ -202,12 +207,17 @@ aes_fopen(const char *fname, size_t len, const char *mode) {
  * - mode(int): Either aes.AES_256, or aes.AES_128
  * 
  * Sets up AES context for encryption
+ * - rounds
+ * - keysize
+ * - key scheduling
+ * - IV
  * Takes key as ascii string input, and the mode  (128,256)
  */
 static int aes_init( lua_State* L) {
  	//initialize the ctx
 	os_memset( &aes_ctx, 0, sizeof( AES_CTX ) );
-    uint8_t *key;	
+    
+	uint8_t *key;	
 	size_t k_len, iv_tmp_len, iv_len;
 	AES_MODE mode;
 	uint8_t iv[AES_IV_SIZE];
@@ -215,6 +225,7 @@ static int aes_init( lua_State* L) {
 	//get input from lua
 	const unsigned char *key_tmp = luaL_checklstring(L,1, &k_len);
 	const unsigned char *iv_tmp = luaL_checklstring(L,2, &iv_tmp_len);
+	
 	//convert IV from ascii hex to binary
 	aes_read_hex(iv_tmp, iv_tmp_len, iv, &iv_len);
 	
@@ -226,8 +237,8 @@ static int aes_init( lua_State* L) {
 	else
 		mode = AES_MODE_128;
 
+	//char* to uint8..
 	key = (uint8_t *)key_tmp;
-	/*iv = (uint8_t *)iv_tmp;*/
 	
 	//do key scheduling
 	AES_set_key(&aes_ctx, key, iv, mode);
@@ -243,7 +254,10 @@ static int aes_init( lua_State* L) {
  * - mode(int): Either aes.AES_256, or aes.AES_128
  * 
  * Sets up AES context for decryption
- * takes string key as input and mode
+ * - rounds
+ * - keysize
+ * - key scheduling
+ * - IV
  *
  */
 static int aes_init_decrypt( lua_State* L ) {
@@ -272,7 +286,8 @@ static int aes_init_decrypt( lua_State* L ) {
 	
 	//do key scheduling
 	AES_set_key(&aes_ctx, key, iv, mode);
-//set keyschedule for decrypt
+	
+	//set keyschedule for decrypt
 	AES_convert_key(&aes_ctx);
 	
 	return 0;
@@ -288,10 +303,12 @@ static int aes_encrypt( lua_State* L ) {
 	uint8_t  *in_data;
 	size_t in_len;
 	int i =0,buffer_len;
+	char buffer[33];
+	
+	//setup file for output
 	const char *fname = "cipher.lua";
 	const char *fmode = "w+";
 	int result = aes_fopen(fname, 10, fmode);
-	char buffer[33];
 	
 	//make sure set keys has been called
 	if (&aes_ctx == NULL){
@@ -312,25 +329,20 @@ static int aes_encrypt( lua_State* L ) {
 	//get the input data from lua 
 	const char *in_data_tmp = luaL_checklstring(L, 1, &in_len);
 	uint8_t out_data[in_len*8];
+	
 	//convert input to 8bit int
 	in_data = (uint8_t *)in_data_tmp;
-	/*os_memcpy(in_data, in_data_tmp, in_len);*/
 	
 	//encrypt
 	AES_cbc_encrypt(&aes_ctx, in_data, out_data, in_len*8);
 	
 	//output result to file
-	int data_len = sizeof(out_data)/sizeof(out_data[0]);	
-	
-	//16*8 = 128 bits
 	for(i=0; i < in_len; i++){
 		os_sprintf(buffer, "%02X", out_data[i]);
-		buffer_len = sizeof(buffer)/sizeof(buffer[0]);
 		aes_fwrite(buffer, 2);
 		WRITE_PERI_REG(0x60000914, 0x73);	
 	}
-	//add a null
-	/*aes_fwrite("", 1);*/
+	
 	//file close
 	aes_fclose();
 
@@ -350,6 +362,7 @@ static int aes_decrypt( lua_State* L ) {
 	int i, buffer_len;
 	uint8_t in_data[256];//max of 256 bytes to decrypt
 	size_t in_len;	
+	char buffer[33];
 	const char *fname = "output.lua";
 	const char *fmode = "w+";
 	
@@ -358,7 +371,6 @@ static int aes_decrypt( lua_State* L ) {
 	
 	//open cipher text
 	int result = aes_fopen(cipher_name, in_len, "r");
-	char buffer[33];
 	
 	//make sure set keys has been called
 	if (&aes_ctx == NULL){
@@ -377,14 +389,12 @@ static int aes_decrypt( lua_State* L ) {
 	}
 	//read the cipher text into in_data
 	aes_fread_hex(in_data, &in_len);
+	
 	//close cipher fle
 	aes_fclose();
+	
 	//create outdata buffer
 	uint8_t out_data[in_len];	
-	
-	//const char *in_data_tmp = luaL_checklstring(L,1,&in_len);
-	
-	//in_data = (uint8_t *)in_data_tmp;
 	
 	//cbc decrypt
 	AES_cbc_decrypt(&aes_ctx, in_data, out_data, in_len);
@@ -406,18 +416,15 @@ static int aes_decrypt( lua_State* L ) {
 		return 1;
 	}
 
-	//16*8 = 128 bits
 	for(i=0; i < in_len; i++){
 		os_sprintf(buffer, "%c", (unsigned char)out_data[i]);
 		aes_fwrite(buffer, 1);
 		WRITE_PERI_REG(0x60000914, 0x73);	
 	}
-	//add a null
-	//aes_fwrite("", 1);
+	
 	//file close
 	aes_fclose();
-	/*result = (char *)out_data;*/
-	/*lua_pushstring(L, result);*/
+	
 	lua_pushliteral(L,"Plaintext stored in output.lua");
 	return 1;
 }
@@ -433,6 +440,7 @@ static int aes_dump( lua_State* L ) {
 	const char *fmode = "w+";
 	int result = aes_fopen(fname, 10, fmode);
 	char buffer[33];
+	
 	//make sure set keys has been called
 	if (&aes_ctx == NULL){
 		lua_pushliteral(L,"context is null");
@@ -518,8 +526,8 @@ const LUA_REG_TYPE aes_map[] =
 		  { LSTRKEY( "generate_iv" ), LFUNCVAL( aes_rng )},
 		  { LSTRKEY( "encrypt" ), LFUNCVAL( aes_encrypt)},
 		  { LSTRKEY( "decrypt" ), LFUNCVAL( aes_decrypt)},
-		  { LSTRKEY( "AES_256" ), LNUMVAL( 1 )},
-		  { LSTRKEY( "AES_128" ), LNUMVAL( 0 )},
+		  { LSTRKEY( "AES_256" ), LNUMVAL( 1 )},  //in Lua: aes.AES_256 will return a 1
+		  { LSTRKEY( "AES_128" ), LNUMVAL( 0 )},  //in Lua: aes.AES_128 will return a 0
   { LNILKEY, LNILVAL}
 };
 
